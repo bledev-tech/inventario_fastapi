@@ -1,0 +1,12 @@
+from app.models.locacion import Locacion
+from app.models.movimiento import Movimiento, TipoMovimiento
+from app.models.producto import Producto
+from app.models.vista_stock import VistaStockActual
+
+__all__ = [
+    "Producto",
+    "Locacion",
+    "Movimiento",
+    "VistaStockActual",
+    "TipoMovimiento",
+]
