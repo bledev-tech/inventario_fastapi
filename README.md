@@ -21,14 +21,14 @@ MVP interno para gestionar inventario de cocina con FastAPI y PostgreSQL, manten
 
 La base de datos se inicializa automaticamente con el esquema provisto (`db/schema.sql`), que define:
 - Tipo `tipo_movimiento`
-- Tablas `productos`, `locaciones`, `movimientos`
+- Tablas `productos`, `locaciones`, `personas`, `movimientos`
 - Vista `vista_stock_actual`
 - Trigger `tg_evitar_stock_negativo` y funcion `fn_evitar_stock_negativo`
 
 ## Arquitectura
 
 - `app/main.py`: crea la instancia de FastAPI y monta el router versionado.
-- `app/api/v1/endpoints`: controladores HTTP divididos por dominio (productos, locaciones, movimientos y stock).
+- `app/api/v1/endpoints`: controladores HTTP divididos por dominio (productos, locaciones, personas, movimientos y stock).
 - `app/crud`: operaciones basicas con SQLAlchemy ajustadas a cada modelo.
 - `app/models`: modelos ORM y enums compartidos con los esquemas Pydantic.
 - `app/schemas`: contratos de entrada/salida en la API. Incluyen validaciones de negocio de primer nivel.
@@ -45,6 +45,7 @@ La base de datos se inicializa automaticamente con el esquema provisto (`db/sche
 - El trigger `fn_evitar_stock_negativo` bloquea usos y traspasos que dejen stock negativo en la locacion origen.
 - SKU de producto es opcional, pero si se informa debe ser unico.
 - Los nombres de locacion deben ser unicos.
+- Las personas deben tener nombre unico; pueden desactivarse via `activa=false` y aun asi quedar vinculadas a movimientos historicos.
 
 Las validaciones anteriores se aplican primero en la API (errores 422/400) y luego se refuerzan en la base de datos.
 
@@ -55,7 +56,9 @@ Las validaciones anteriores se aplican primero en la API (errores 422/400) y lue
 - `GET /redoc` - documentacion alternativa.
 - `GET /api/v1/productos` - catalogo de productos.
 - `GET /api/v1/locaciones` - catalogo de locaciones.
+- `GET /api/v1/personas` - directorio de personas que pueden registrar movimientos.
 - `POST /api/v1/movimientos` - registra ingresos, traspasos, usos o ajustes validando reglas de negocio.
+- `GET /api/v1/movimientos` - lista todos los movimientos con filtros opcionales por producto, locacion o tipo.
 - `GET /api/v1/movimientos/producto/{producto_id}` - kardex de un producto ordenado por fecha descendente.
 - `GET /api/v1/stock` - stock consolidado desde la vista `vista_stock_actual` (con filtros opcionales por producto o locacion).
 - `GET /api/v1/stock/locaciones` - inventario agrupado por locacion con productos y stock listos para el front.

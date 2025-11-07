@@ -16,6 +16,13 @@ CREATE TABLE locaciones (
   activa  BOOLEAN NOT NULL DEFAULT TRUE
 );
 
+-- Personas responsables de movimientos
+CREATE TABLE personas (
+  id      SERIAL PRIMARY KEY,
+  nombre  TEXT NOT NULL UNIQUE,
+  activa  BOOLEAN NOT NULL DEFAULT TRUE
+);
+
 -- Movimientos de inventario (Kardex simplificado)
 CREATE TABLE movimientos (
   id                 BIGSERIAL PRIMARY KEY,
@@ -24,6 +31,7 @@ CREATE TABLE movimientos (
   producto_id        INTEGER NOT NULL REFERENCES productos(id),
   from_locacion_id   INTEGER REFERENCES locaciones(id),
   to_locacion_id     INTEGER REFERENCES locaciones(id),
+  persona_id         INTEGER REFERENCES personas(id),
   cantidad           NUMERIC(14,3) NOT NULL CHECK (cantidad > 0),
   nota               TEXT
 );
@@ -49,6 +57,7 @@ ALTER TABLE movimientos ADD CONSTRAINT chk_mov_uso
 CREATE INDEX idx_movimientos_producto_fecha ON movimientos (producto_id, fecha);
 CREATE INDEX idx_movimientos_from ON movimientos (from_locacion_id);
 CREATE INDEX idx_movimientos_to   ON movimientos (to_locacion_id);
+CREATE INDEX idx_movimientos_persona ON movimientos (persona_id);
 
 CREATE VIEW vista_stock_actual AS
 SELECT

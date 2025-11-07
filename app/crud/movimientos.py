@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.models.movimiento import Movimiento
+from app.models.movimiento import Movimiento, TipoMovimiento
 from app.schemas.movimiento import MovimientoCreate
 
 
@@ -31,4 +31,36 @@ def get_multi_by_producto(
         .offset(skip)
         .limit(limit)
     )
+    return db.execute(stmt).scalars().all()
+
+
+def get_multi(
+    db: Session,
+    *,
+    skip: int = 0,
+    limit: int = 100,
+    producto_id: int | None = None,
+    locacion_id: int | None = None,
+    tipo: TipoMovimiento | None = None,
+    persona_id: int | None = None,
+) -> list[Movimiento]:
+    stmt = (
+        select(Movimiento)
+        .order_by(Movimiento.fecha.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    if producto_id is not None:
+        stmt = stmt.where(Movimiento.producto_id == producto_id)
+    if tipo is not None:
+        stmt = stmt.where(Movimiento.tipo == tipo)
+    if locacion_id is not None:
+        stmt = stmt.where(
+            or_(
+                Movimiento.from_locacion_id == locacion_id,
+                Movimiento.to_locacion_id == locacion_id,
+            )
+        )
+    if persona_id is not None:
+        stmt = stmt.where(Movimiento.persona_id == persona_id)
     return db.execute(stmt).scalars().all()

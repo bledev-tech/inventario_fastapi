@@ -12,6 +12,7 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from app.models.locacion import Locacion
+    from app.models.persona import Persona
     from app.models.producto import Producto
 
 
@@ -33,6 +34,7 @@ class Movimiento(Base):
     producto_id: Mapped[int] = mapped_column(ForeignKey("productos.id"), nullable=False)
     from_locacion_id: Mapped[int | None] = mapped_column(ForeignKey("locaciones.id"), nullable=True)
     to_locacion_id: Mapped[int | None] = mapped_column(ForeignKey("locaciones.id"), nullable=True)
+    persona_id: Mapped[int | None] = mapped_column(ForeignKey("personas.id"), nullable=True)
     cantidad: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
     nota: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -43,3 +45,4 @@ class Movimiento(Base):
     to_locacion: Mapped["Locacion | None"] = relationship(
         "Locacion", foreign_keys=[to_locacion_id], back_populates="movimientos_destino"
     )
+    persona: Mapped["Persona | None"] = relationship("Persona", back_populates="movimientos")

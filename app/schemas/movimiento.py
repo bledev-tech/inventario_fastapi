@@ -13,6 +13,7 @@ class MovimientoBase(BaseModel):
     tipo: TipoMovimiento
     from_locacion_id: int | None = Field(default=None, gt=0)
     to_locacion_id: int | None = Field(default=None, gt=0)
+    persona_id: int | None = Field(default=None, gt=0)
     cantidad: CantidadDecimal
     nota: str | None = None
 
