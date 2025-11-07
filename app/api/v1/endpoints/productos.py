@@ -32,6 +32,15 @@ def create_producto(*, producto_in: ProductoCreate, db: Session = Depends(get_db
                 context={"sku": producto_in.sku},
             )
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    uom = crud.uoms.get(db, producto_in.uom_id)
+    if not uom:
+        detail = error_detail(
+            "uom_not_found",
+            "Unidad de medida no encontrada",
+            context={"uom_id": producto_in.uom_id},
+        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
     if producto_in.marca_id is not None:
         marca = crud.marcas.get(db, producto_in.marca_id)
         if not marca:
@@ -94,6 +103,16 @@ def update_producto(*, producto_id: int, producto_in: ProductoUpdate, db: Sessio
                 context={"sku": producto_in.sku},
             )
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    if producto_in.uom_id is not None:
+        uom = crud.uoms.get(db, producto_in.uom_id)
+        if not uom:
+            detail = error_detail(
+                "uom_not_found",
+                "Unidad de medida no encontrada",
+                context={"uom_id": producto_in.uom_id},
+            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
     if producto_in.marca_id is not None:
         marca = crud.marcas.get(db, producto_in.marca_id)
         if not marca:

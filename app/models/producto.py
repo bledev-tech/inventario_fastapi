@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from app.models.categoria import Categoria
     from app.models.marca import Marca
     from app.models.movimiento import Movimiento
+    from app.models.uom import UOM
 
 
 class Producto(Base):
@@ -20,6 +21,7 @@ class Producto(Base):
     sku: Mapped[str | None] = mapped_column(Text, unique=True, nullable=True)
     nombre: Mapped[str] = mapped_column(Text, nullable=False)
     activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    uom_id: Mapped[int] = mapped_column(ForeignKey("uoms.id"), nullable=False)
     marca_id: Mapped[int | None] = mapped_column(
         ForeignKey("marcas.id", ondelete="SET NULL"), nullable=True
     )
@@ -33,3 +35,4 @@ class Producto(Base):
     )
     marca: Mapped["Marca | None"] = relationship("Marca", back_populates="productos")
     categoria: Mapped["Categoria | None"] = relationship("Categoria", back_populates="productos")
+    uom: Mapped["UOM"] = relationship("UOM", back_populates="productos")

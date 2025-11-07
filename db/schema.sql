@@ -1,6 +1,15 @@
 -- Tipos
 CREATE TYPE tipo_movimiento AS ENUM ('ingreso', 'traspaso', 'uso', 'ajuste');
 
+-- Unidades de medida
+CREATE TABLE uoms (
+  id            SERIAL PRIMARY KEY,
+  nombre        TEXT NOT NULL UNIQUE,
+  abreviatura   TEXT NOT NULL UNIQUE,
+  descripcion   TEXT,
+  activa        BOOLEAN NOT NULL DEFAULT TRUE
+);
+
 -- Catalogos auxiliares
 CREATE TABLE categorias (
   id      SERIAL PRIMARY KEY,
@@ -26,6 +35,7 @@ CREATE TABLE productos (
   sku           TEXT UNIQUE,
   nombre        TEXT NOT NULL,
   activo        BOOLEAN NOT NULL DEFAULT TRUE,
+  uom_id        INTEGER NOT NULL REFERENCES uoms(id),
   marca_id      INTEGER REFERENCES marcas(id) ON DELETE SET NULL,
   categoria_id  INTEGER REFERENCES categorias(id) ON DELETE SET NULL
 );
@@ -81,6 +91,7 @@ CREATE INDEX idx_movimientos_from ON movimientos (from_locacion_id);
 CREATE INDEX idx_movimientos_to   ON movimientos (to_locacion_id);
 CREATE INDEX idx_movimientos_persona ON movimientos (persona_id);
 CREATE INDEX idx_movimientos_proveedor ON movimientos (proveedor_id);
+CREATE INDEX idx_productos_uom ON productos (uom_id);
 
 CREATE VIEW vista_stock_actual AS
 SELECT

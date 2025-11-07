@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.locacion import Locacion
 from app.models.movimiento import Movimiento
 from app.models.producto import Producto
+from app.models.uom import UOM
 from app.models.vista_stock import VistaStockActual
 
 
@@ -40,10 +41,14 @@ def get_grouped_by_locacion(db: Session, *, include_zero: bool = False) -> list[
             Producto.nombre.label("producto_nombre"),
             Producto.sku.label("producto_sku"),
             Producto.activo.label("producto_activo"),
+            UOM.id.label("uom_id"),
+            UOM.nombre.label("uom_nombre"),
+            UOM.abreviatura.label("uom_abreviatura"),
             VistaStockActual.stock.label("stock"),
         )
         .join(Locacion, VistaStockActual.locacion_id == Locacion.id)
         .join(Producto, VistaStockActual.producto_id == Producto.id)
+        .join(UOM, Producto.uom_id == UOM.id)
         .order_by(Locacion.nombre, Producto.nombre)
     )
 
@@ -73,6 +78,9 @@ def get_grouped_by_locacion(db: Session, *, include_zero: bool = False) -> list[
                 "producto_nombre": row["producto_nombre"],
                 "sku": row["producto_sku"],
                 "activo": row["producto_activo"],
+                "uom_id": row["uom_id"],
+                "uom_nombre": row["uom_nombre"],
+                "uom_abreviatura": row["uom_abreviatura"],
                 "stock": stock,
             }
         )
@@ -97,11 +105,22 @@ def get_total_por_dia(db: Session, *, fecha: date) -> list[dict]:
             Movimiento.producto_id.label("producto_id"),
             Producto.nombre.label("producto_nombre"),
             Producto.sku.label("sku"),
+            UOM.id.label("uom_id"),
+            UOM.nombre.label("uom_nombre"),
+            UOM.abreviatura.label("uom_abreviatura"),
             func.coalesce(func.sum(saldo_expr), 0).label("total_stock"),
         )
         .join(Producto, Producto.id == Movimiento.producto_id)
+        .join(UOM, Producto.uom_id == UOM.id)
         .where(func.date(Movimiento.fecha) <= fecha)
-        .group_by(Movimiento.producto_id, Producto.nombre, Producto.sku)
+        .group_by(
+            Movimiento.producto_id,
+            Producto.nombre,
+            Producto.sku,
+            UOM.id,
+            UOM.nombre,
+            UOM.abreviatura,
+        )
         .having(func.coalesce(func.sum(saldo_expr), 0) > 0)
         .order_by(Producto.nombre)
     )
@@ -112,6 +131,9 @@ def get_total_por_dia(db: Session, *, fecha: date) -> list[dict]:
             "producto_id": row["producto_id"],
             "producto_nombre": row["producto_nombre"],
             "sku": row["sku"],
+            "uom_id": row["uom_id"],
+            "uom_nombre": row["uom_nombre"],
+            "uom_abreviatura": row["uom_abreviatura"],
             "total_stock": row["total_stock"],
         }
         for row in rows

@@ -46,8 +46,35 @@ La base de datos se inicializa automaticamente con el esquema provisto (`db/sche
 - SKU de producto es opcional, pero si se informa debe ser unico.
 - Los nombres de locacion deben ser unicos.
 - Las personas deben tener nombre unico; pueden desactivarse via `activa=false` y aun asi quedar vinculadas a movimientos historicos.
+- Cada producto debe asociarse a una unidad de medida (UoM). Todo el inventario se registra y muestra en esa unidad para evitar conversiones manuales.
 
 Las validaciones anteriores se aplican primero en la API (errores 422/400) y luego se refuerzan en la base de datos.
+
+## Sistema de unidades de medida (UoM)
+
+El catalogo de unidades de medida te permite reforzar la consistencia del inventario:
+
+1. **Crear unidades**: usa el CRUD de `/api/v1/uoms` para dar de alta opciones como *Kilogramo (kg)*, *Litro (L)* o *Pieza (pz)*. Cada unidad necesita nombre, abreviatura y puede inactivarse sin perder historicos.
+2. **Asignar productos**: al crear o actualizar un producto debes indicar `uom_id`. Los movimientos y el stock siempre se interpretan en esta unidad, por lo que conviene mantener una lista corta y consistente.
+3. **Consultar inventario**: los endpoints de stock devuelven la unidad asociada a cada producto, por lo que el frontend puede mostrar las abreviaturas correctas y evitar errores de interpretacion.
+
+> En el futuro se pueden agregar factores de conversion o UoMs de compra, pero este MVP mantiene un modelo directo (1 producto = 1 UoM) para garantizar simplicidad.
+
+## Datos de prueba (seeders)
+
+El archivo `db/seeds.sql` carga datos basicos para explorar la API (UoMs, categorias, marcas, proveedores, locaciones, personas, productos y movimientos de ejemplo). Ejecutalo despues de aplicar el esquema:
+
+```bash
+psql postgresql://postgres:postgres@localhost:5432/inventario -f db/seeds.sql
+```
+
+Si estas usando Docker Compose, puedes correrlo con:
+
+```bash
+docker-compose exec db psql -U postgres -d inventario -f /app/db/seeds.sql
+```
+
+Los movimientos creados son idempotentes (usan `ON CONFLICT`/`NOT EXISTS`), por lo que puedes relanzar el script sin duplicar registros.
 
 ## Endpoints principales
 
@@ -62,6 +89,8 @@ Las validaciones anteriores se aplican primero en la API (errores 422/400) y lue
 - `GET /api/v1/movimientos/producto/{producto_id}` - kardex de un producto ordenado por fecha descendente.
 - `GET /api/v1/stock` - stock consolidado desde la vista `vista_stock_actual` (con filtros opcionales por producto o locacion).
 - `GET /api/v1/stock/locaciones` - inventario agrupado por locacion con productos y stock listos para el front.
+- `GET /api/v1/stock/total-diario` - inventario acumulado por producto para una fecha dada, incluyendo su unidad de medida.
+- `GET /api/v1/uoms` - catalogo de unidades de medida (CRUD completo).
 
 ## Buenas practicas y notas
 

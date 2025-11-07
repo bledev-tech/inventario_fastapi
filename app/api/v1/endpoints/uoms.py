@@ -1,0 +1,122 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from app import crud
+from app.api.deps import get_db
+from app.api.utils import error_detail
+from app.schemas.uom import UOMCreate, UOMOut, UOMUpdate
+
+router = APIRouter()
+
+
+@router.get("/", response_model=list[UOMOut])
+def read_uoms(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> list[UOMOut]:
+    return crud.uoms.get_multi(db, skip=skip, limit=limit)
+
+
+@router.post("/", response_model=UOMOut, status_code=status.HTTP_201_CREATED)
+def create_uom(*, uom_in: UOMCreate, db: Session = Depends(get_db)) -> UOMOut:
+    if crud.uoms.get_by_nombre(db, uom_in.nombre):
+        detail = error_detail(
+            "uom_duplicate_nombre",
+            "Ya existe una unidad con ese nombre",
+            context={"nombre": uom_in.nombre},
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+    if crud.uoms.get_by_abreviatura(db, uom_in.abreviatura):
+        detail = error_detail(
+            "uom_duplicate_abreviatura",
+            "Ya existe una unidad con esa abreviatura",
+            context={"abreviatura": uom_in.abreviatura},
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    try:
+        return crud.uoms.create(db, obj_in=uom_in)
+    except IntegrityError as exc:
+        db.rollback()
+        detail = error_detail("uom_error", "No se pudo crear la unidad de medida")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        detail = error_detail("uom_error", "No se pudo crear la unidad de medida")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail) from exc
+
+
+@router.get("/{uom_id}", response_model=UOMOut)
+def read_uom(*, uom_id: int, db: Session = Depends(get_db)) -> UOMOut:
+    uom = crud.uoms.get(db, uom_id)
+    if not uom:
+        detail = error_detail(
+            "uom_not_found",
+            "Unidad de medida no encontrada",
+            context={"uom_id": uom_id},
+        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    return uom
+
+
+@router.put("/{uom_id}", response_model=UOMOut)
+def update_uom(*, uom_id: int, uom_in: UOMUpdate, db: Session = Depends(get_db)) -> UOMOut:
+    uom = crud.uoms.get(db, uom_id)
+    if not uom:
+        detail = error_detail(
+            "uom_not_found",
+            "Unidad de medida no encontrada",
+            context={"uom_id": uom_id},
+        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
+    if uom_in.nombre and uom_in.nombre != uom.nombre:
+        if crud.uoms.get_by_nombre(db, uom_in.nombre):
+            detail = error_detail(
+                "uom_duplicate_nombre",
+                "Ya existe una unidad con ese nombre",
+                context={"nombre": uom_in.nombre},
+            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    if uom_in.abreviatura and uom_in.abreviatura != uom.abreviatura:
+        if crud.uoms.get_by_abreviatura(db, uom_in.abreviatura):
+            detail = error_detail(
+                "uom_duplicate_abreviatura",
+                "Ya existe una unidad con esa abreviatura",
+                context={"abreviatura": uom_in.abreviatura},
+            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    try:
+        return crud.uoms.update(db, db_obj=uom, obj_in=uom_in)
+    except IntegrityError as exc:
+        db.rollback()
+        detail = error_detail("uom_error", "No se pudo actualizar la unidad de medida")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        detail = error_detail("uom_error", "No se pudo actualizar la unidad de medida")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail) from exc
+
+
+@router.delete("/{uom_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_uom(*, uom_id: int, db: Session = Depends(get_db)) -> Response:
+    uom = crud.uoms.get(db, uom_id)
+    if not uom:
+        detail = error_detail(
+            "uom_not_found",
+            "Unidad de medida no encontrada",
+            context={"uom_id": uom_id},
+        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
+    try:
+        crud.uoms.delete(db, db_obj=uom)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        detail = error_detail("uom_error", "No se pudo eliminar la unidad de medida")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

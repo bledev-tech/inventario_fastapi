@@ -9,6 +9,7 @@ class ProductoBase(BaseModel):
     activo: bool = True
     marca_id: int | None = Field(default=None, gt=0)
     categoria_id: int | None = Field(default=None, gt=0)
+    uom_id: int = Field(..., gt=0)
 
 
 class ProductoCreate(ProductoBase):
@@ -21,6 +22,7 @@ class ProductoUpdate(BaseModel):
     activo: bool | None = None
     marca_id: int | None = Field(default=None, gt=0)
     categoria_id: int | None = Field(default=None, gt=0)
+    uom_id: int | None = Field(default=None, gt=0)
 
 
 class ProductoOut(ProductoBase):

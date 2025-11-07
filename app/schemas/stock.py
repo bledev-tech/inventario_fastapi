@@ -20,6 +20,9 @@ class InventarioProducto(BaseModel):
     producto_nombre: str
     sku: str | None
     activo: bool
+    uom_id: int
+    uom_nombre: str
+    uom_abreviatura: str
     stock: Decimal
 
 
@@ -35,6 +38,9 @@ class InventarioTotalProducto(BaseModel):
     producto_id: int
     producto_nombre: str
     sku: str | None
+    uom_id: int
+    uom_nombre: str
+    uom_abreviatura: str
     total_stock: Decimal
 
 
