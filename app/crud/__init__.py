@@ -1,4 +1,13 @@
-from app.crud import locaciones, movimientos, personas, productos, stock
+from app.crud import (
+    categorias,
+    locaciones,
+    marcas,
+    movimientos,
+    personas,
+    productos,
+    proveedores,
+    stock,
+)
 
 __all__ = [
     "productos",
@@ -6,4 +15,7 @@ __all__ = [
     "movimientos",
     "personas",
     "stock",
+    "marcas",
+    "categorias",
+    "proveedores",
 ]

@@ -1,7 +1,10 @@
+from app.models.categoria import Categoria
 from app.models.locacion import Locacion
+from app.models.marca import Marca
 from app.models.movimiento import Movimiento, TipoMovimiento
 from app.models.persona import Persona
 from app.models.producto import Producto
+from app.models.proveedor import Proveedor
 from app.models.vista_stock import VistaStockActual
 
 __all__ = [
@@ -11,4 +14,7 @@ __all__ = [
     "Movimiento",
     "VistaStockActual",
     "TipoMovimiento",
+    "Marca",
+    "Categoria",
+    "Proveedor",
 ]

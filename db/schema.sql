@@ -1,12 +1,33 @@
-﻿-- Tipos
+-- Tipos
 CREATE TYPE tipo_movimiento AS ENUM ('ingreso', 'traspaso', 'uso', 'ajuste');
 
--- Catálogo de productos
+-- Catalogos auxiliares
+CREATE TABLE categorias (
+  id      SERIAL PRIMARY KEY,
+  nombre  TEXT NOT NULL UNIQUE,
+  activa  BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE marcas (
+  id      SERIAL PRIMARY KEY,
+  nombre  TEXT NOT NULL UNIQUE,
+  activa  BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE proveedores (
+  id      SERIAL PRIMARY KEY,
+  nombre  TEXT NOT NULL UNIQUE,
+  activa  BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+-- Catalogo de productos
 CREATE TABLE productos (
   id            SERIAL PRIMARY KEY,
   sku           TEXT UNIQUE,
   nombre        TEXT NOT NULL,
-  activo        BOOLEAN NOT NULL DEFAULT TRUE
+  activo        BOOLEAN NOT NULL DEFAULT TRUE,
+  marca_id      INTEGER REFERENCES marcas(id) ON DELETE SET NULL,
+  categoria_id  INTEGER REFERENCES categorias(id) ON DELETE SET NULL
 );
 
 -- Zonas/Bodegas/Locaciones
@@ -32,6 +53,7 @@ CREATE TABLE movimientos (
   from_locacion_id   INTEGER REFERENCES locaciones(id),
   to_locacion_id     INTEGER REFERENCES locaciones(id),
   persona_id         INTEGER REFERENCES personas(id),
+  proveedor_id       INTEGER REFERENCES proveedores(id),
   cantidad           NUMERIC(14,3) NOT NULL CHECK (cantidad > 0),
   nota               TEXT
 );
@@ -58,6 +80,7 @@ CREATE INDEX idx_movimientos_producto_fecha ON movimientos (producto_id, fecha);
 CREATE INDEX idx_movimientos_from ON movimientos (from_locacion_id);
 CREATE INDEX idx_movimientos_to   ON movimientos (to_locacion_id);
 CREATE INDEX idx_movimientos_persona ON movimientos (persona_id);
+CREATE INDEX idx_movimientos_proveedor ON movimientos (proveedor_id);
 
 CREATE VIEW vista_stock_actual AS
 SELECT
@@ -87,7 +110,7 @@ BEGIN
       AND v.locacion_id = NEW.from_locacion_id;
 
     IF stock_actual < NEW.cantidad THEN
-      RAISE EXCEPTION 'Stock insuficiente en locación origen (%. Disponible: %, Intentado: %)',
+      RAISE EXCEPTION 'Stock insuficiente en locacion origen (%. Disponible: %, Intentado: %)',
         NEW.from_locacion_id, stock_actual, NEW.cantidad;
     END IF;
   END IF;

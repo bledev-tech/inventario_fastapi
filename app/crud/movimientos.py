@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import or_, select
+from datetime import date
+
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.movimiento import Movimiento, TipoMovimiento
@@ -43,6 +45,7 @@ def get_multi(
     locacion_id: int | None = None,
     tipo: TipoMovimiento | None = None,
     persona_id: int | None = None,
+    proveedor_id: int | None = None,
 ) -> list[Movimiento]:
     stmt = (
         select(Movimiento)
@@ -63,4 +66,15 @@ def get_multi(
         )
     if persona_id is not None:
         stmt = stmt.where(Movimiento.persona_id == persona_id)
+    if proveedor_id is not None:
+        stmt = stmt.where(Movimiento.proveedor_id == proveedor_id)
+    return db.execute(stmt).scalars().all()
+
+
+def get_por_dia(db: Session, *, fecha: date) -> list[Movimiento]:
+    stmt = (
+        select(Movimiento)
+        .where(func.date(Movimiento.fecha) == fecha)
+        .order_by(Movimiento.fecha.desc())
+    )
     return db.execute(stmt).scalars().all()

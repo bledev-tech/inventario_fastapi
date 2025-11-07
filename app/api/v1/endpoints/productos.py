@@ -32,6 +32,24 @@ def create_producto(*, producto_in: ProductoCreate, db: Session = Depends(get_db
                 context={"sku": producto_in.sku},
             )
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    if producto_in.marca_id is not None:
+        marca = crud.marcas.get(db, producto_in.marca_id)
+        if not marca:
+            detail = error_detail(
+                "marca_not_found",
+                "Marca no encontrada",
+                context={"marca_id": producto_in.marca_id},
+            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    if producto_in.categoria_id is not None:
+        categoria = crud.categorias.get(db, producto_in.categoria_id)
+        if not categoria:
+            detail = error_detail(
+                "categoria_not_found",
+                "Categoria no encontrada",
+                context={"categoria_id": producto_in.categoria_id},
+            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
     try:
         return crud.productos.create(db, obj_in=producto_in)
     except IntegrityError as exc:
@@ -76,6 +94,24 @@ def update_producto(*, producto_id: int, producto_in: ProductoUpdate, db: Sessio
                 context={"sku": producto_in.sku},
             )
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+    if producto_in.marca_id is not None:
+        marca = crud.marcas.get(db, producto_in.marca_id)
+        if not marca:
+            detail = error_detail(
+                "marca_not_found",
+                "Marca no encontrada",
+                context={"marca_id": producto_in.marca_id},
+            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    if producto_in.categoria_id is not None:
+        categoria = crud.categorias.get(db, producto_in.categoria_id)
+        if not categoria:
+            detail = error_detail(
+                "categoria_not_found",
+                "Categoria no encontrada",
+                context={"categoria_id": producto_in.categoria_id},
+            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
     try:
         return crud.productos.update(db, db_obj=producto, obj_in=producto_in)
     except IntegrityError as exc:

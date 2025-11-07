@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import DataError, IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -22,6 +24,7 @@ def read_movimientos(
     locacion_id: int | None = Query(default=None, gt=0),
     tipo: TipoMovimiento | None = Query(default=None),
     persona_id: int | None = Query(default=None, gt=0),
+    proveedor_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
 ) -> list[MovimientoOut]:
     if producto_id is not None:
@@ -53,6 +56,16 @@ def read_movimientos(
             )
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
+    if proveedor_id is not None:
+        proveedor = crud.proveedores.get(db, proveedor_id)
+        if not proveedor:
+            detail = error_detail(
+                "proveedor_not_found",
+                "Proveedor no encontrado",
+                context={"proveedor_id": proveedor_id},
+            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
     return crud.movimientos.get_multi(
         db,
         skip=skip,
@@ -61,6 +74,7 @@ def read_movimientos(
         locacion_id=locacion_id,
         tipo=tipo,
         persona_id=persona_id,
+        proveedor_id=proveedor_id,
     )
 
 
@@ -105,6 +119,16 @@ def create_movimiento(*, movimiento_in: MovimientoCreate, db: Session = Depends(
             )
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
+    if movimiento_in.proveedor_id is not None:
+        proveedor = crud.proveedores.get(db, movimiento_in.proveedor_id)
+        if not proveedor:
+            detail = error_detail(
+                "proveedor_not_found",
+                "Proveedor no encontrado",
+                context={"proveedor_id": movimiento_in.proveedor_id},
+            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
     try:
         return crud.movimientos.create(db, obj_in=movimiento_in)
     except (IntegrityError, DataError) as exc:
@@ -139,3 +163,16 @@ def read_movimientos_por_producto(
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
     return crud.movimientos.get_multi_by_producto(db, producto_id=producto_id, skip=skip, limit=limit)
+
+
+@router.get("/dia", response_model=list[MovimientoOut])
+def read_movimientos_por_dia(
+    *,
+    fecha: date | None = Query(
+        default=None,
+        description="Fecha (UTC) para filtrar los movimientos. Si se omite se usa el dia actual.",
+    ),
+    db: Session = Depends(get_db),
+) -> list[MovimientoOut]:
+    target_date = fecha or date.today()
+    return crud.movimientos.get_por_dia(db, fecha=target_date)

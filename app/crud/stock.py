@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.models.locacion import Locacion
+from app.models.movimiento import Movimiento
 from app.models.producto import Producto
 from app.models.vista_stock import VistaStockActual
 
@@ -77,3 +79,40 @@ def get_grouped_by_locacion(db: Session, *, include_zero: bool = False) -> list[
         locacion["total_stock"] += stock
 
     return sorted(grouped.values(), key=lambda loc: loc["locacion_nombre"])
+
+
+def get_total_por_dia(db: Session, *, fecha: date) -> list[dict]:
+    ingreso_expr = case(
+        (Movimiento.to_locacion_id.isnot(None), Movimiento.cantidad),
+        else_=0,
+    )
+    salida_expr = case(
+        (Movimiento.from_locacion_id.isnot(None), Movimiento.cantidad),
+        else_=0,
+    )
+    saldo_expr = ingreso_expr - salida_expr
+
+    stmt = (
+        select(
+            Movimiento.producto_id.label("producto_id"),
+            Producto.nombre.label("producto_nombre"),
+            Producto.sku.label("sku"),
+            func.coalesce(func.sum(saldo_expr), 0).label("total_stock"),
+        )
+        .join(Producto, Producto.id == Movimiento.producto_id)
+        .where(func.date(Movimiento.fecha) <= fecha)
+        .group_by(Movimiento.producto_id, Producto.nombre, Producto.sku)
+        .having(func.coalesce(func.sum(saldo_expr), 0) > 0)
+        .order_by(Producto.nombre)
+    )
+
+    rows = db.execute(stmt).mappings().all()
+    return [
+        {
+            "producto_id": row["producto_id"],
+            "producto_nombre": row["producto_nombre"],
+            "sku": row["sku"],
+            "total_stock": row["total_stock"],
+        }
+        for row in rows
+    ]
