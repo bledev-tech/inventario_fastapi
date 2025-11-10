@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1 import dashboard
 from app.api.v1.endpoints import (
     categorias,
     locaciones,
@@ -22,3 +23,4 @@ api_router.include_router(personas.router, prefix="/personas", tags=["personas"]
 api_router.include_router(proveedores.router, prefix="/proveedores", tags=["proveedores"])
 api_router.include_router(movimientos.router, prefix="/movimientos", tags=["movimientos"])
 api_router.include_router(stock.router, prefix="/stock", tags=["stock"])
+api_router.include_router(dashboard.router)
