@@ -6,23 +6,22 @@ from app.core.config import settings
 
 app = FastAPI(title=settings.project_name)
 
-# 👇 Orígenes permitidos (frontend)
-origins = [
+# Configurar CORS para permitir peticiones desde el frontend
+# Usa la configuración para los orígenes permitidos en CORS
+allowed_origins = getattr(settings, "allowed_origins", [
     "http://localhost:3000",
+    "http://localhost:3001",
     "http://127.0.0.1:3000",
-    # agrega otros si usas otro puerto/dominio
-]
+])
 
-# 👇 Middleware CORS (tiene que ir antes de include_router)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,        # en desarrollo puedes usar ["*"] si quieres soltarte
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],          # GET, POST, PUT, DELETE, OPTIONS...
-    allow_headers=["*"],          # Authorization, Content-Type, etc.
+    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Permite solo los métodos necesarios
+    allow_headers=["*"],  # Permite todos los headers
 )
 
-# Rutas API
 app.include_router(api_router, prefix=settings.api_v1_str)
 
 
