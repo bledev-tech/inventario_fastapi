@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import case, func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
 from app.models.categoria import Categoria
 from app.models.locacion import Locacion
-from app.models.movimiento import Movimiento
+from app.models.movimiento import Movimiento, TipoMovimiento
 from app.models.producto import Producto
 from app.models.uom import UOM
 from app.models.vista_stock import VistaStockActual
@@ -91,12 +91,27 @@ def get_grouped_by_locacion(db: Session, *, include_zero: bool = False) -> list[
 
 
 def get_total_por_dia(db: Session, *, fecha: date) -> list[dict]:
+    entrada_tipos = (TipoMovimiento.ingreso, TipoMovimiento.traspaso, TipoMovimiento.ajuste)
+    salida_tipos = (TipoMovimiento.uso, TipoMovimiento.traspaso, TipoMovimiento.ajuste)
+
     ingreso_expr = case(
-        (Movimiento.to_locacion_id.isnot(None), Movimiento.cantidad),
+        (
+            and_(
+                Movimiento.to_locacion_id.isnot(None),
+                Movimiento.tipo.in_(entrada_tipos),
+            ),
+            Movimiento.cantidad,
+        ),
         else_=0,
     )
     salida_expr = case(
-        (Movimiento.from_locacion_id.isnot(None), Movimiento.cantidad),
+        (
+            and_(
+                Movimiento.from_locacion_id.isnot(None),
+                Movimiento.tipo.in_(salida_tipos),
+            ),
+            Movimiento.cantidad,
+        ),
         else_=0,
     )
     saldo_expr = ingreso_expr - salida_expr
@@ -152,12 +167,27 @@ def get_weekly_inventory(
 ) -> dict:
     """Calcula el inventario diario por producto para el rango semanal solicitado."""
 
+    entrada_tipos = (TipoMovimiento.ingreso, TipoMovimiento.traspaso, TipoMovimiento.ajuste)
+    salida_tipos = (TipoMovimiento.uso, TipoMovimiento.traspaso, TipoMovimiento.ajuste)
+
     ingreso_expr = case(
-        (Movimiento.to_locacion_id.isnot(None), Movimiento.cantidad),
+        (
+            and_(
+                Movimiento.to_locacion_id.isnot(None),
+                Movimiento.tipo.in_(entrada_tipos),
+            ),
+            Movimiento.cantidad,
+        ),
         else_=0,
     )
     egreso_expr = case(
-        (Movimiento.from_locacion_id.isnot(None), Movimiento.cantidad),
+        (
+            and_(
+                Movimiento.from_locacion_id.isnot(None),
+                Movimiento.tipo.in_(salida_tipos),
+            ),
+            Movimiento.cantidad,
+        ),
         else_=0,
     )
     saldo_expr = ingreso_expr - egreso_expr

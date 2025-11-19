@@ -83,7 +83,10 @@ ALTER TABLE movimientos ADD CONSTRAINT chk_mov_traspaso
 ALTER TABLE movimientos ADD CONSTRAINT chk_mov_uso
   CHECK (
     (tipo <> 'uso')
-    OR (from_locacion_id IS NOT NULL AND to_locacion_id IS NULL)
+    OR (
+      from_locacion_id IS NOT NULL
+      AND (to_locacion_id IS NULL OR to_locacion_id <> from_locacion_id)
+    )
   );
 
 CREATE INDEX idx_movimientos_producto_fecha ON movimientos (producto_id, fecha);
@@ -99,8 +102,8 @@ SELECT
   l.id  AS locacion_id,
   COALESCE(SUM(
     CASE
-      WHEN m.to_locacion_id = l.id THEN m.cantidad
-      WHEN m.from_locacion_id = l.id THEN -m.cantidad
+      WHEN m.tipo IN ('ingreso','traspaso','ajuste') AND m.to_locacion_id = l.id THEN m.cantidad
+      WHEN m.tipo IN ('traspaso','uso','ajuste') AND m.from_locacion_id = l.id THEN -m.cantidad
       ELSE 0
     END
   ), 0)::NUMERIC(14,3) AS stock

@@ -593,6 +593,8 @@ SELECT
 FROM producto_data d
 ON CONFLICT (sku) DO UPDATE SET nombre = EXCLUDED.nombre;
 
+COMMIT;
+
 -- Movimientos iniciales
 INSERT INTO movimientos (fecha, tipo, producto_id, from_locacion_id, to_locacion_id, persona_id, proveedor_id, cantidad, nota)
 VALUES
@@ -878,4 +880,3 @@ VALUES
   (TIMESTAMPTZ '2025-11-01 08:00:00+00', 'ingreso', (SELECT id FROM productos WHERE sku = 'CAL-0302'), NULL, (SELECT id FROM locaciones WHERE nombre = 'Bodega Calameno'), (SELECT id FROM personas WHERE nombre = 'Angel Calameno'), NULL, 50.000, 'Carga inicial plasticos (Plásticos y desechables)'),
   (TIMESTAMPTZ '2025-11-01 08:00:00+00', 'ingreso', (SELECT id FROM productos WHERE sku = 'CAL-0294'), NULL, (SELECT id FROM locaciones WHERE nombre = 'Bodega Calameno'), (SELECT id FROM personas WHERE nombre = 'Angel Calameno'), NULL, 50.000, 'Carga inicial plasticos (Plásticos y desechables)'),
   (TIMESTAMPTZ '2025-11-01 08:00:00+00', 'ingreso', (SELECT id FROM productos WHERE sku = 'CAL-0306'), NULL, (SELECT id FROM locaciones WHERE nombre = 'Bodega Calameno'), (SELECT id FROM personas WHERE nombre = 'Angel Calameno'), NULL, 1.000, 'Carga inicial plasticos (Plásticos y desechables)');
-COMMIT;
