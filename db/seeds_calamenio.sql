@@ -5,7 +5,7 @@ INSERT INTO uoms (nombre, abreviatura, descripcion)
 VALUES
   ('Kilogramo', 'kg', 'Peso en kilogramos para alimentos'),
   ('Litro', 'L', 'Volumen en litros para liquidos'),
-  ('Unidad', 'pz', 'Piezas individuales o empaques contados')
+  ('Unidad', 'Uni', 'Piezas individuales o empaques contados')
 ON CONFLICT (nombre) DO NOTHING;
 
 -- Categorias consolidadas para una vista mas simple
