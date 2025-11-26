@@ -59,6 +59,19 @@ class TopUsedProductsResponse(BaseModel):
     limit: int
 
 
+class TopCategoryItem(BaseModel):
+    categoria_id: int
+    categoria_nombre: str
+    total_movimiento: float
+    movimientos_count: int
+
+
+class TopCategoriesResponse(BaseModel):
+    items: List[TopCategoryItem]
+    days: int
+    limit: int
+
+
 class AdjustmentProductItem(BaseModel):
     producto_id: int
     producto_nombre: str

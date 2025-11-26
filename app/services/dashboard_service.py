@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, aliased
 
 from app.models import (
+    Categoria,
     Locacion,
     Movimiento,
     Persona,
@@ -28,6 +29,8 @@ from app.schemas.dashboard import (
     RecentMovementsResponse,
     StockByLocationItem,
     StockByLocationResponse,
+    TopCategoriesResponse,
+    TopCategoryItem,
     TopUsedProductItem,
     TopUsedProductsResponse,
 )
@@ -255,6 +258,46 @@ def get_top_used_products(db: Session, *, days: int, limit: int) -> TopUsedProdu
         for row in rows
     ]
     return TopUsedProductsResponse(items=items, days=days, limit=limit)
+
+
+def get_top_categories(db: Session, *, days: int, limit: int) -> TopCategoriesResponse:
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    stmt = (
+        select(
+            Categoria.id.label("categoria_id"),
+            Categoria.nombre.label("categoria_nombre"),
+            func.sum(func.abs(Movimiento.cantidad)).label("total_movimiento"),
+            func.count(Movimiento.id).label("movimientos_count"),
+        )
+        .select_from(Movimiento)
+        .join(Producto, Movimiento.producto_id == Producto.id)
+        .join(Categoria, Producto.categoria_id == Categoria.id)
+        .where(Movimiento.fecha >= since)
+        .group_by(Categoria.id, Categoria.nombre)
+        .order_by(
+            func.sum(func.abs(Movimiento.cantidad)).desc(),
+            func.count(Movimiento.id).desc(),
+            Categoria.nombre.asc(),
+        )
+        .limit(limit)
+    )
+
+    try:
+        rows = db.execute(stmt).all()
+    except SQLAlchemyError as exc:
+        _raise_db_error(exc)
+
+    items = [
+        TopCategoryItem(
+            categoria_id=row.categoria_id,
+            categoria_nombre=row.categoria_nombre,
+            total_movimiento=_decimal_to_float(row.total_movimiento),
+            movimientos_count=int(row.movimientos_count or 0),
+        )
+        for row in rows
+    ]
+    return TopCategoriesResponse(items=items, days=days, limit=limit)
 
 
 def get_adjustments_monitor(db: Session, *, days: int, top: int) -> AdjustmentsMonitorResponse:

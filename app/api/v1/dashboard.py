@@ -10,6 +10,7 @@ from app.schemas.dashboard import (
     DashboardSummaryResponse,
     RecentMovementsResponse,
     StockByLocationResponse,
+    TopCategoriesResponse,
     TopUsedProductsResponse,
 )
 from app.services.dashboard_service import (
@@ -17,6 +18,7 @@ from app.services.dashboard_service import (
     get_dashboard_summary,
     get_recent_movements,
     get_stock_by_location,
+    get_top_categories,
     get_top_used_products,
 )
 
@@ -92,6 +94,21 @@ def top_used_products(
     limit: int = Query(10, ge=1, le=100, description="Cantidad máxima de productos en la respuesta."),
 ) -> TopUsedProductsResponse:
     return get_top_used_products(db, days=days, limit=limit)
+
+
+@router.get(
+    "/top-categories",
+    response_model=TopCategoriesResponse,
+    summary="Top categorias con mas movimiento",
+    description="Agrupa movimientos por categoria de producto para detectar las que mueven mayor volumen en el rango indicado.",
+)
+def top_categories(
+    *,
+    db: Session = Depends(get_db),
+    days: int = Query(30, ge=1, le=365, description="Rango de dias hacia atras a considerar."),
+    limit: int = Query(10, ge=1, le=100, description="Cantidad maxima de categorias en la respuesta."),
+) -> TopCategoriesResponse:
+    return get_top_categories(db, days=days, limit=limit)
 
 
 @router.get(
