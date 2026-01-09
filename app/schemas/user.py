@@ -1,4 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+BCRYPT_MAX_BYTES = 72
 
 
 class UserBase(BaseModel):
@@ -7,8 +9,15 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=8, max_length=128)
+    password: str = Field(..., min_length=8, max_length=BCRYPT_MAX_BYTES)
     is_superuser: bool = False
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_length(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > BCRYPT_MAX_BYTES:
+            raise ValueError("Password must be at most 72 bytes for bcrypt")
+        return value
 
 
 class UserOut(UserBase):
@@ -19,4 +28,3 @@ class UserOut(UserBase):
 
     class Config:
         from_attributes = True
-
