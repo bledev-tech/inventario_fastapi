@@ -7,22 +7,36 @@ from app.models.producto import Producto
 from app.schemas.producto import ProductoCreate, ProductoUpdate
 
 
-def get(db: Session, producto_id: int) -> Producto | None:
-    return db.get(Producto, producto_id)
+def get(db: Session, *, tenant_id: int, producto_id: int) -> Producto | None:
+    stmt = select(Producto).where(
+        Producto.id == producto_id,
+        Producto.tenant_id == tenant_id,
+    )
+    return db.execute(stmt).scalar_one_or_none()
 
 
-def get_by_sku(db: Session, sku: str) -> Producto | None:
-    return db.execute(select(Producto).where(Producto.sku == sku)).scalar_one_or_none()
+def get_by_sku(db: Session, *, tenant_id: int, sku: str) -> Producto | None:
+    stmt = select(Producto).where(
+        Producto.sku == sku,
+        Producto.tenant_id == tenant_id,
+    )
+    return db.execute(stmt).scalar_one_or_none()
 
 
-def get_multi(db: Session, *, skip: int = 0, limit: int = 100) -> list[Producto]:
-    stmt = select(Producto).order_by(Producto.id).offset(skip).limit(limit)
+def get_multi(db: Session, *, tenant_id: int, skip: int = 0, limit: int = 100) -> list[Producto]:
+    stmt = (
+        select(Producto)
+        .where(Producto.tenant_id == tenant_id)
+        .order_by(Producto.id)
+        .offset(skip)
+        .limit(limit)
+    )
     result = db.execute(stmt)
     return result.scalars().all()
 
 
-def create(db: Session, *, obj_in: ProductoCreate) -> Producto:
-    db_obj = Producto(**obj_in.model_dump())
+def create(db: Session, *, tenant_id: int, obj_in: ProductoCreate) -> Producto:
+    db_obj = Producto(**obj_in.model_dump(), tenant_id=tenant_id)
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)

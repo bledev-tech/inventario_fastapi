@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 import io
 import csv
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
+from app.models.user import User
 from app.schemas.weekly_stock import WeeklyStockResponse
 from app.services.weekly_stock_service import get_weekly_stock
 
@@ -19,7 +20,8 @@ router = APIRouter(prefix="/weekly-stock", tags=["Weekly Stock"])
 def get_weekly_stock_view(
     week_start: date = Query(..., description="Fecha de inicio de semana (lunes) YYYY-MM-DD"),
     categories: str | None = Query(None, description="IDs de categorías separados por coma (ej: 1,2,3)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Obtiene el reporte de stock semanal por categorías.
@@ -37,6 +39,7 @@ def get_weekly_stock_view(
     
     result = get_weekly_stock(
         db,
+        tenant_id=current_user.tenant_id,
         week_start=week_start,
         category_ids=category_ids
     )
@@ -48,7 +51,8 @@ def get_weekly_stock_view(
 def export_weekly_stock_csv(
     week_start: date = Query(..., description="Fecha de inicio de semana (lunes) YYYY-MM-DD"),
     categories: str | None = Query(None, description="IDs de categorías separados por coma"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Exporta el reporte de stock semanal a CSV.
@@ -64,6 +68,7 @@ def export_weekly_stock_csv(
     # Obtener datos
     result = get_weekly_stock(
         db,
+        tenant_id=current_user.tenant_id,
         week_start=week_start,
         category_ids=category_ids
     )

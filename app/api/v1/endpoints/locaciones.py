@@ -5,8 +5,9 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import crud
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.api.utils import error_detail
+from app.models.user import User
 from app.schemas.locacion import LocacionCreate, LocacionOut, LocacionUpdate
 
 router = APIRouter()
@@ -17,14 +18,25 @@ def read_locaciones(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[LocacionOut]:
-    return crud.locaciones.get_multi(db, skip=skip, limit=limit)
+    return crud.locaciones.get_multi(
+        db,
+        tenant_id=current_user.tenant_id,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.post("/", response_model=LocacionOut, status_code=status.HTTP_201_CREATED)
-def create_locacion(*, locacion_in: LocacionCreate, db: Session = Depends(get_db)) -> LocacionOut:
+def create_locacion(
+    *,
+    locacion_in: LocacionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> LocacionOut:
     try:
-        return crud.locaciones.create(db, obj_in=locacion_in)
+        return crud.locaciones.create(db, tenant_id=current_user.tenant_id, obj_in=locacion_in)
     except IntegrityError as exc:
         db.rollback()
         detail = error_detail(
@@ -40,8 +52,18 @@ def create_locacion(*, locacion_in: LocacionCreate, db: Session = Depends(get_db
 
 
 @router.put("/{locacion_id}", response_model=LocacionOut)
-def update_locacion(*, locacion_id: int, locacion_in: LocacionUpdate, db: Session = Depends(get_db)) -> LocacionOut:
-    locacion = crud.locaciones.get(db, locacion_id)
+def update_locacion(
+    *,
+    locacion_id: int,
+    locacion_in: LocacionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> LocacionOut:
+    locacion = crud.locaciones.get(
+        db,
+        tenant_id=current_user.tenant_id,
+        locacion_id=locacion_id,
+    )
     if not locacion:
         detail = error_detail(
             "locacion_not_found",

@@ -7,22 +7,35 @@ from app.models.persona import Persona
 from app.schemas.persona import PersonaCreate, PersonaUpdate
 
 
-def get(db: Session, persona_id: int) -> Persona | None:
-    return db.get(Persona, persona_id)
-
-
-def get_by_nombre(db: Session, nombre: str) -> Persona | None:
-    stmt = select(Persona).where(Persona.nombre == nombre)
+def get(db: Session, *, tenant_id: int, persona_id: int) -> Persona | None:
+    stmt = select(Persona).where(
+        Persona.id == persona_id,
+        Persona.tenant_id == tenant_id,
+    )
     return db.execute(stmt).scalar_one_or_none()
 
 
-def get_multi(db: Session, *, skip: int = 0, limit: int = 100) -> list[Persona]:
-    stmt = select(Persona).order_by(Persona.nombre).offset(skip).limit(limit)
+def get_by_nombre(db: Session, *, tenant_id: int, nombre: str) -> Persona | None:
+    stmt = select(Persona).where(
+        Persona.nombre == nombre,
+        Persona.tenant_id == tenant_id,
+    )
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def get_multi(db: Session, *, tenant_id: int, skip: int = 0, limit: int = 100) -> list[Persona]:
+    stmt = (
+        select(Persona)
+        .where(Persona.tenant_id == tenant_id)
+        .order_by(Persona.nombre)
+        .offset(skip)
+        .limit(limit)
+    )
     return db.execute(stmt).scalars().all()
 
 
-def create(db: Session, *, obj_in: PersonaCreate) -> Persona:
-    db_obj = Persona(**obj_in.model_dump())
+def create(db: Session, *, tenant_id: int, obj_in: PersonaCreate) -> Persona:
+    db_obj = Persona(**obj_in.model_dump(), tenant_id=tenant_id)
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)

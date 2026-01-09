@@ -7,18 +7,28 @@ from app.models.locacion import Locacion
 from app.schemas.locacion import LocacionCreate, LocacionUpdate
 
 
-def get(db: Session, locacion_id: int) -> Locacion | None:
-    return db.get(Locacion, locacion_id)
+def get(db: Session, *, tenant_id: int, locacion_id: int) -> Locacion | None:
+    stmt = select(Locacion).where(
+        Locacion.id == locacion_id,
+        Locacion.tenant_id == tenant_id,
+    )
+    return db.execute(stmt).scalar_one_or_none()
 
 
-def get_multi(db: Session, *, skip: int = 0, limit: int = 100) -> list[Locacion]:
-    stmt = select(Locacion).order_by(Locacion.id).offset(skip).limit(limit)
+def get_multi(db: Session, *, tenant_id: int, skip: int = 0, limit: int = 100) -> list[Locacion]:
+    stmt = (
+        select(Locacion)
+        .where(Locacion.tenant_id == tenant_id)
+        .order_by(Locacion.id)
+        .offset(skip)
+        .limit(limit)
+    )
     result = db.execute(stmt)
     return result.scalars().all()
 
 
-def create(db: Session, *, obj_in: LocacionCreate) -> Locacion:
-    db_obj = Locacion(**obj_in.model_dump())
+def create(db: Session, *, tenant_id: int, obj_in: LocacionCreate) -> Locacion:
+    db_obj = Locacion(**obj_in.model_dump(), tenant_id=tenant_id)
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)

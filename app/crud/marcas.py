@@ -7,22 +7,35 @@ from app.models.marca import Marca
 from app.schemas.marca import MarcaCreate, MarcaUpdate
 
 
-def get(db: Session, marca_id: int) -> Marca | None:
-    return db.get(Marca, marca_id)
-
-
-def get_by_nombre(db: Session, nombre: str) -> Marca | None:
-    stmt = select(Marca).where(Marca.nombre == nombre)
+def get(db: Session, *, tenant_id: int, marca_id: int) -> Marca | None:
+    stmt = select(Marca).where(
+        Marca.id == marca_id,
+        Marca.tenant_id == tenant_id,
+    )
     return db.execute(stmt).scalar_one_or_none()
 
 
-def get_multi(db: Session, *, skip: int = 0, limit: int = 100) -> list[Marca]:
-    stmt = select(Marca).order_by(Marca.nombre).offset(skip).limit(limit)
+def get_by_nombre(db: Session, *, tenant_id: int, nombre: str) -> Marca | None:
+    stmt = select(Marca).where(
+        Marca.nombre == nombre,
+        Marca.tenant_id == tenant_id,
+    )
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def get_multi(db: Session, *, tenant_id: int, skip: int = 0, limit: int = 100) -> list[Marca]:
+    stmt = (
+        select(Marca)
+        .where(Marca.tenant_id == tenant_id)
+        .order_by(Marca.nombre)
+        .offset(skip)
+        .limit(limit)
+    )
     return db.execute(stmt).scalars().all()
 
 
-def create(db: Session, *, obj_in: MarcaCreate) -> Marca:
-    db_obj = Marca(**obj_in.model_dump())
+def create(db: Session, *, tenant_id: int, obj_in: MarcaCreate) -> Marca:
+    db_obj = Marca(**obj_in.model_dump(), tenant_id=tenant_id)
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)

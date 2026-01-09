@@ -9,10 +9,10 @@ from app.models.movimiento import Movimiento, TipoMovimiento
 from app.schemas.movimiento import MovimientoCreate
 
 
-def create(db: Session, *, obj_in: MovimientoCreate) -> Movimiento:
+def create(db: Session, *, tenant_id: int, obj_in: MovimientoCreate) -> Movimiento:
     data = obj_in.model_dump()
     data["tipo"] = obj_in.tipo.value
-    db_obj = Movimiento(**data)
+    db_obj = Movimiento(**data, tenant_id=tenant_id)
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
@@ -22,13 +22,17 @@ def create(db: Session, *, obj_in: MovimientoCreate) -> Movimiento:
 def get_multi_by_producto(
     db: Session,
     *,
+    tenant_id: int,
     producto_id: int,
     skip: int = 0,
     limit: int = 100,
 ) -> list[Movimiento]:
     stmt = (
         select(Movimiento)
-        .where(Movimiento.producto_id == producto_id)
+        .where(
+            Movimiento.producto_id == producto_id,
+            Movimiento.tenant_id == tenant_id,
+        )
         .order_by(Movimiento.fecha.desc())
         .offset(skip)
         .limit(limit)
@@ -39,6 +43,7 @@ def get_multi_by_producto(
 def get_multi(
     db: Session,
     *,
+    tenant_id: int,
     skip: int = 0,
     limit: int = 100,
     producto_id: int | None = None,
@@ -49,6 +54,7 @@ def get_multi(
 ) -> list[Movimiento]:
     stmt = (
         select(Movimiento)
+        .where(Movimiento.tenant_id == tenant_id)
         .order_by(Movimiento.fecha.desc())
         .offset(skip)
         .limit(limit)
@@ -71,10 +77,13 @@ def get_multi(
     return db.execute(stmt).scalars().all()
 
 
-def get_por_dia(db: Session, *, fecha: date) -> list[Movimiento]:
+def get_por_dia(db: Session, *, tenant_id: int, fecha: date) -> list[Movimiento]:
     stmt = (
         select(Movimiento)
-        .where(func.date(Movimiento.fecha) == fecha)
+        .where(
+            func.date(Movimiento.fecha) == fecha,
+            Movimiento.tenant_id == tenant_id,
+        )
         .order_by(Movimiento.fecha.desc())
     )
     return db.execute(stmt).scalars().all()

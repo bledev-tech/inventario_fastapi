@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import and_, case, func, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.categoria import Categoria
@@ -14,17 +14,35 @@ from app.models.uom import UOM
 from app.models.vista_stock import VistaStockActual
 
 
-def get_all(db: Session) -> list[VistaStockActual]:
-    return db.execute(select(VistaStockActual)).scalars().all()
+def get_all(db: Session, *, tenant_id: int) -> list[VistaStockActual]:
+    stmt = (
+        select(VistaStockActual)
+        .join(Producto, VistaStockActual.producto_id == Producto.id)
+        .join(Locacion, VistaStockActual.locacion_id == Locacion.id)
+        .where(
+            Producto.tenant_id == tenant_id,
+            Locacion.tenant_id == tenant_id,
+        )
+    )
+    return db.execute(stmt).scalars().all()
 
 
 def get_filtered(
     db: Session,
     *,
+    tenant_id: int,
     producto_id: int | None = None,
     locacion_id: int | None = None,
 ) -> list[VistaStockActual]:
-    stmt = select(VistaStockActual)
+    stmt = (
+        select(VistaStockActual)
+        .join(Producto, VistaStockActual.producto_id == Producto.id)
+        .join(Locacion, VistaStockActual.locacion_id == Locacion.id)
+        .where(
+            Producto.tenant_id == tenant_id,
+            Locacion.tenant_id == tenant_id,
+        )
+    )
     if producto_id is not None:
         stmt = stmt.where(VistaStockActual.producto_id == producto_id)
     if locacion_id is not None:
@@ -32,7 +50,7 @@ def get_filtered(
     return db.execute(stmt).scalars().all()
 
 
-def get_grouped_by_locacion(db: Session, *, include_zero: bool = False) -> list[dict]:
+def get_grouped_by_locacion(db: Session, *, tenant_id: int, include_zero: bool = False) -> list[dict]:
     stmt = (
         select(
             VistaStockActual.locacion_id.label("locacion_id"),
@@ -50,6 +68,11 @@ def get_grouped_by_locacion(db: Session, *, include_zero: bool = False) -> list[
         .join(Locacion, VistaStockActual.locacion_id == Locacion.id)
         .join(Producto, VistaStockActual.producto_id == Producto.id)
         .join(UOM, Producto.uom_id == UOM.id)
+        .where(
+            Locacion.tenant_id == tenant_id,
+            Producto.tenant_id == tenant_id,
+            UOM.tenant_id == tenant_id,
+        )
         .order_by(Locacion.nombre, Producto.nombre)
     )
 
@@ -90,7 +113,7 @@ def get_grouped_by_locacion(db: Session, *, include_zero: bool = False) -> list[
     return sorted(grouped.values(), key=lambda loc: loc["locacion_nombre"])
 
 
-def get_total_por_dia(db: Session, *, fecha: date) -> list[dict]:
+def get_total_por_dia(db: Session, *, tenant_id: int, fecha: date) -> list[dict]:
     entrada_tipos = (TipoMovimiento.ingreso, TipoMovimiento.traspaso, TipoMovimiento.ajuste)
     salida_tipos = (TipoMovimiento.uso, TipoMovimiento.traspaso, TipoMovimiento.ajuste)
 
@@ -128,7 +151,12 @@ def get_total_por_dia(db: Session, *, fecha: date) -> list[dict]:
         )
         .join(Producto, Producto.id == Movimiento.producto_id)
         .join(UOM, Producto.uom_id == UOM.id)
-        .where(func.date(Movimiento.fecha) <= fecha)
+        .where(
+            func.date(Movimiento.fecha) <= fecha,
+            Movimiento.tenant_id == tenant_id,
+            Producto.tenant_id == tenant_id,
+            UOM.tenant_id == tenant_id,
+        )
         .group_by(
             Movimiento.producto_id,
             Producto.nombre,
@@ -159,6 +187,7 @@ def get_total_por_dia(db: Session, *, fecha: date) -> list[dict]:
 def get_weekly_inventory(
     db: Session,
     *,
+    tenant_id: int,
     start_date: date,
     end_date: date,
     categoria_ids: list[int] | None = None,
@@ -217,7 +246,13 @@ def get_weekly_inventory(
         .join(Producto, Producto.id == Movimiento.producto_id)
         .join(UOM, Producto.uom_id == UOM.id)
         .outerjoin(Categoria, Producto.categoria_id == Categoria.id)
-        .where(fecha_col <= base_cutoff)
+        .where(
+            fecha_col <= base_cutoff,
+            Movimiento.tenant_id == tenant_id,
+            Producto.tenant_id == tenant_id,
+            UOM.tenant_id == tenant_id,
+            or_(Categoria.id.is_(None), Categoria.tenant_id == tenant_id),
+        )
     )
 
     for condition in pre_filters:
@@ -257,8 +292,14 @@ def get_weekly_inventory(
         .join(Producto, Producto.id == Movimiento.producto_id)
         .join(UOM, Producto.uom_id == UOM.id)
         .outerjoin(Categoria, Producto.categoria_id == Categoria.id)
-        .where(fecha_col >= start_date)
-        .where(fecha_col <= end_date)
+        .where(
+            fecha_col >= start_date,
+            fecha_col <= end_date,
+            Movimiento.tenant_id == tenant_id,
+            Producto.tenant_id == tenant_id,
+            UOM.tenant_id == tenant_id,
+            or_(Categoria.id.is_(None), Categoria.tenant_id == tenant_id),
+        )
     )
 
     for condition in pre_filters:
@@ -339,6 +380,12 @@ def get_weekly_inventory(
             UOM.nombre,
             UOM.abreviatura,
         ).join(UOM, Producto.uom_id == UOM.id).outerjoin(Categoria, Producto.categoria_id == Categoria.id)
+
+        meta_stmt = meta_stmt.where(
+            Producto.tenant_id == tenant_id,
+            UOM.tenant_id == tenant_id,
+            or_(Categoria.id.is_(None), Categoria.tenant_id == tenant_id),
+        )
 
         if categoria_ids:
             meta_stmt = meta_stmt.where(Producto.categoria_id.in_(categoria_ids))

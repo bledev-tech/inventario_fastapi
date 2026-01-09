@@ -18,7 +18,7 @@ services:
     environment:
       - PROJECT_NAME=Inventario FastAPI MVP
       - API_V1_STR=/api/v1
-      - DATABASE_URL=postgresql+psycopg2://postgres:postgres@db:5432/inventario
+      - DATABASE_URL=postgresql+psycopg2://postgres:postgres@db:5434/inventario
     volumes:
       - ./:/app
     ports:

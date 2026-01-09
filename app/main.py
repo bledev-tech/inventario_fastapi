@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import api_router
+from app.api.v1 import api_router as api_router_v1
+from app.api.v2 import api_router as api_router_v2
 from app.core.config import settings
 
 app = FastAPI(title=settings.project_name)
@@ -22,7 +23,9 @@ app.add_middleware(
     allow_headers=["*"],  # Permite todos los headers
 )
 
-app.include_router(api_router, prefix=settings.api_v1_str)
+app.include_router(api_router_v2, prefix=settings.api_v2_str)
+if settings.enable_v1:
+    app.include_router(api_router_v1, prefix=settings.api_v1_str)
 
 
 @app.get("/")

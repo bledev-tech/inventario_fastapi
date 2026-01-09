@@ -24,7 +24,7 @@ def _get_monday(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
-def _get_stock_at_date(db: Session, producto_id: int, until_date: date) -> float:
+def _get_stock_at_date(db: Session, *, tenant_id: int, producto_id: int, until_date: date) -> float:
     """
     Calcula el stock de un producto hasta una fecha dada.
     INGRESO suma (+), USO resta (-), TRASPASO no afecta stock total.
@@ -42,13 +42,14 @@ def _get_stock_at_date(db: Session, producto_id: int, until_date: date) -> float
         )
     ).filter(
         Movimiento.producto_id == producto_id,
-        func.date(Movimiento.fecha) <= until_date
+        func.date(Movimiento.fecha) <= until_date,
+        Movimiento.tenant_id == tenant_id,
     ).scalar()
     
     return float(result or 0)
 
 
-def _get_current_stock(db: Session, producto_id: int) -> float:
+def _get_current_stock(db: Session, *, tenant_id: int, producto_id: int) -> float:
     """
     Obtiene el stock actual real del producto calculando:
     INGRESO suma (+), USO resta (-), TRASPASO no afecta stock total.
@@ -65,7 +66,8 @@ def _get_current_stock(db: Session, producto_id: int) -> float:
             0
         )
     ).filter(
-        Movimiento.producto_id == producto_id
+        Movimiento.producto_id == producto_id,
+        Movimiento.tenant_id == tenant_id,
     ).scalar()
     
     return float(result or 0)
@@ -74,6 +76,7 @@ def _get_current_stock(db: Session, producto_id: int) -> float:
 def get_weekly_stock(
     db: Session,
     *,
+    tenant_id: int,
     week_start: date,
     category_ids: list[int] | None = None
 ) -> WeeklyStockResponse:
@@ -109,7 +112,10 @@ def get_weekly_stock(
     prev_day = monday - timedelta(days=1)
     
     # Query base de productos
-    query = db.query(Producto).filter(Producto.activo == True)
+    query = db.query(Producto).filter(
+        Producto.activo == True,
+        Producto.tenant_id == tenant_id,
+    )
     
     # Filtrar por categorías si se especifican
     if category_ids:
@@ -140,7 +146,12 @@ def get_weekly_stock(
         
         for producto in cat_productos:
             # Calcular stock inicial (al final del día anterior al lunes)
-            initial_stock = _get_stock_at_date(db, producto.id, prev_day)
+            initial_stock = _get_stock_at_date(
+                db,
+                tenant_id=tenant_id,
+                producto_id=producto.id,
+                until_date=prev_day,
+            )
             
             # Calcular movimientos diarios
             daily_movements_data = {}
@@ -164,13 +175,18 @@ def get_weekly_stock(
                         )
                     ).filter(
                         Movimiento.producto_id == producto.id,
-                        func.date(Movimiento.fecha) == day_date
+                        func.date(Movimiento.fecha) == day_date,
+                        Movimiento.tenant_id == tenant_id,
                     ).scalar()
                     
                     daily_movements_data[day_name] = float(movement_sum or 0)
             
             # Obtener stock actual real (fuente de verdad)
-            final_stock_realtime = _get_current_stock(db, producto.id)
+            final_stock_realtime = _get_current_stock(
+                db,
+                tenant_id=tenant_id,
+                producto_id=producto.id,
+            )
             
             # Crear objeto WeeklyProduct
             weekly_product = WeeklyProduct(

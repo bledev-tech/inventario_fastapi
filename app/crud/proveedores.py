@@ -7,22 +7,35 @@ from app.models.proveedor import Proveedor
 from app.schemas.proveedor import ProveedorCreate, ProveedorUpdate
 
 
-def get(db: Session, proveedor_id: int) -> Proveedor | None:
-    return db.get(Proveedor, proveedor_id)
-
-
-def get_by_nombre(db: Session, nombre: str) -> Proveedor | None:
-    stmt = select(Proveedor).where(Proveedor.nombre == nombre)
+def get(db: Session, *, tenant_id: int, proveedor_id: int) -> Proveedor | None:
+    stmt = select(Proveedor).where(
+        Proveedor.id == proveedor_id,
+        Proveedor.tenant_id == tenant_id,
+    )
     return db.execute(stmt).scalar_one_or_none()
 
 
-def get_multi(db: Session, *, skip: int = 0, limit: int = 100) -> list[Proveedor]:
-    stmt = select(Proveedor).order_by(Proveedor.nombre).offset(skip).limit(limit)
+def get_by_nombre(db: Session, *, tenant_id: int, nombre: str) -> Proveedor | None:
+    stmt = select(Proveedor).where(
+        Proveedor.nombre == nombre,
+        Proveedor.tenant_id == tenant_id,
+    )
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def get_multi(db: Session, *, tenant_id: int, skip: int = 0, limit: int = 100) -> list[Proveedor]:
+    stmt = (
+        select(Proveedor)
+        .where(Proveedor.tenant_id == tenant_id)
+        .order_by(Proveedor.nombre)
+        .offset(skip)
+        .limit(limit)
+    )
     return db.execute(stmt).scalars().all()
 
 
-def create(db: Session, *, obj_in: ProveedorCreate) -> Proveedor:
-    db_obj = Proveedor(**obj_in.model_dump())
+def create(db: Session, *, tenant_id: int, obj_in: ProveedorCreate) -> Proveedor:
+    db_obj = Proveedor(**obj_in.model_dump(), tenant_id=tenant_id)
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)

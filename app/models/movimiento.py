@@ -9,6 +9,7 @@ from sqlalchemy import BigInteger, DateTime, Enum as PgEnum, ForeignKey, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
+from app.models.mixins import TenantMixin
 
 if TYPE_CHECKING:
     from app.models.locacion import Locacion
@@ -24,7 +25,7 @@ class TipoMovimiento(str, Enum):
     ajuste = "ajuste"
 
 
-class Movimiento(Base):
+class Movimiento(TenantMixin, Base):
     __tablename__ = "movimientos"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True)

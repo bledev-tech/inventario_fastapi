@@ -5,8 +5,9 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import crud
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.api.utils import error_detail
+from app.models.user import User
 from app.schemas.uom import UOMCreate, UOMOut, UOMUpdate
 
 router = APIRouter()
@@ -17,13 +18,24 @@ def read_uoms(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[UOMOut]:
-    return crud.uoms.get_multi(db, skip=skip, limit=limit)
+    return crud.uoms.get_multi(
+        db,
+        tenant_id=current_user.tenant_id,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.post("/", response_model=UOMOut, status_code=status.HTTP_201_CREATED)
-def create_uom(*, uom_in: UOMCreate, db: Session = Depends(get_db)) -> UOMOut:
-    if crud.uoms.get_by_nombre(db, uom_in.nombre):
+def create_uom(
+    *,
+    uom_in: UOMCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UOMOut:
+    if crud.uoms.get_by_nombre(db, tenant_id=current_user.tenant_id, nombre=uom_in.nombre):
         detail = error_detail(
             "uom_duplicate_nombre",
             "Ya existe una unidad con ese nombre",
@@ -31,7 +43,11 @@ def create_uom(*, uom_in: UOMCreate, db: Session = Depends(get_db)) -> UOMOut:
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
-    if crud.uoms.get_by_abreviatura(db, uom_in.abreviatura):
+    if crud.uoms.get_by_abreviatura(
+        db,
+        tenant_id=current_user.tenant_id,
+        abreviatura=uom_in.abreviatura,
+    ):
         detail = error_detail(
             "uom_duplicate_abreviatura",
             "Ya existe una unidad con esa abreviatura",
@@ -39,7 +55,7 @@ def create_uom(*, uom_in: UOMCreate, db: Session = Depends(get_db)) -> UOMOut:
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
     try:
-        return crud.uoms.create(db, obj_in=uom_in)
+        return crud.uoms.create(db, tenant_id=current_user.tenant_id, obj_in=uom_in)
     except IntegrityError as exc:
         db.rollback()
         detail = error_detail("uom_error", "No se pudo crear la unidad de medida")
@@ -51,8 +67,13 @@ def create_uom(*, uom_in: UOMCreate, db: Session = Depends(get_db)) -> UOMOut:
 
 
 @router.get("/{uom_id}", response_model=UOMOut)
-def read_uom(*, uom_id: int, db: Session = Depends(get_db)) -> UOMOut:
-    uom = crud.uoms.get(db, uom_id)
+def read_uom(
+    *,
+    uom_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UOMOut:
+    uom = crud.uoms.get(db, tenant_id=current_user.tenant_id, uom_id=uom_id)
     if not uom:
         detail = error_detail(
             "uom_not_found",
@@ -64,8 +85,14 @@ def read_uom(*, uom_id: int, db: Session = Depends(get_db)) -> UOMOut:
 
 
 @router.put("/{uom_id}", response_model=UOMOut)
-def update_uom(*, uom_id: int, uom_in: UOMUpdate, db: Session = Depends(get_db)) -> UOMOut:
-    uom = crud.uoms.get(db, uom_id)
+def update_uom(
+    *,
+    uom_id: int,
+    uom_in: UOMUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UOMOut:
+    uom = crud.uoms.get(db, tenant_id=current_user.tenant_id, uom_id=uom_id)
     if not uom:
         detail = error_detail(
             "uom_not_found",
@@ -75,7 +102,7 @@ def update_uom(*, uom_id: int, uom_in: UOMUpdate, db: Session = Depends(get_db))
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
     if uom_in.nombre and uom_in.nombre != uom.nombre:
-        if crud.uoms.get_by_nombre(db, uom_in.nombre):
+        if crud.uoms.get_by_nombre(db, tenant_id=current_user.tenant_id, nombre=uom_in.nombre):
             detail = error_detail(
                 "uom_duplicate_nombre",
                 "Ya existe una unidad con ese nombre",
@@ -83,7 +110,11 @@ def update_uom(*, uom_id: int, uom_in: UOMUpdate, db: Session = Depends(get_db))
             )
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
     if uom_in.abreviatura and uom_in.abreviatura != uom.abreviatura:
-        if crud.uoms.get_by_abreviatura(db, uom_in.abreviatura):
+        if crud.uoms.get_by_abreviatura(
+            db,
+            tenant_id=current_user.tenant_id,
+            abreviatura=uom_in.abreviatura,
+        ):
             detail = error_detail(
                 "uom_duplicate_abreviatura",
                 "Ya existe una unidad con esa abreviatura",
@@ -103,8 +134,13 @@ def update_uom(*, uom_id: int, uom_in: UOMUpdate, db: Session = Depends(get_db))
 
 
 @router.delete("/{uom_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_uom(*, uom_id: int, db: Session = Depends(get_db)) -> Response:
-    uom = crud.uoms.get(db, uom_id)
+def delete_uom(
+    *,
+    uom_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    uom = crud.uoms.get(db, tenant_id=current_user.tenant_id, uom_id=uom_id)
     if not uom:
         detail = error_detail(
             "uom_not_found",

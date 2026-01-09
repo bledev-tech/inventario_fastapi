@@ -7,27 +7,43 @@ from app.models.uom import UOM
 from app.schemas.uom import UOMCreate, UOMUpdate
 
 
-def get(db: Session, uom_id: int) -> UOM | None:
-    return db.get(UOM, uom_id)
-
-
-def get_by_nombre(db: Session, nombre: str) -> UOM | None:
-    stmt = select(UOM).where(UOM.nombre == nombre)
+def get(db: Session, *, tenant_id: int, uom_id: int) -> UOM | None:
+    stmt = select(UOM).where(
+        UOM.id == uom_id,
+        UOM.tenant_id == tenant_id,
+    )
     return db.execute(stmt).scalar_one_or_none()
 
 
-def get_by_abreviatura(db: Session, abreviatura: str) -> UOM | None:
-    stmt = select(UOM).where(UOM.abreviatura == abreviatura)
+def get_by_nombre(db: Session, *, tenant_id: int, nombre: str) -> UOM | None:
+    stmt = select(UOM).where(
+        UOM.nombre == nombre,
+        UOM.tenant_id == tenant_id,
+    )
     return db.execute(stmt).scalar_one_or_none()
 
 
-def get_multi(db: Session, *, skip: int = 0, limit: int = 100) -> list[UOM]:
-    stmt = select(UOM).order_by(UOM.nombre).offset(skip).limit(limit)
+def get_by_abreviatura(db: Session, *, tenant_id: int, abreviatura: str) -> UOM | None:
+    stmt = select(UOM).where(
+        UOM.abreviatura == abreviatura,
+        UOM.tenant_id == tenant_id,
+    )
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def get_multi(db: Session, *, tenant_id: int, skip: int = 0, limit: int = 100) -> list[UOM]:
+    stmt = (
+        select(UOM)
+        .where(UOM.tenant_id == tenant_id)
+        .order_by(UOM.nombre)
+        .offset(skip)
+        .limit(limit)
+    )
     return db.execute(stmt).scalars().all()
 
 
-def create(db: Session, *, obj_in: UOMCreate) -> UOM:
-    db_obj = UOM(**obj_in.model_dump())
+def create(db: Session, *, tenant_id: int, obj_in: UOMCreate) -> UOM:
+    db_obj = UOM(**obj_in.model_dump(), tenant_id=tenant_id)
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)

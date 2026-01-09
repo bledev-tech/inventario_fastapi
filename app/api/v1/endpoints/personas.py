@@ -5,8 +5,9 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import crud
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.api.utils import error_detail
+from app.models.user import User
 from app.schemas.persona import PersonaCreate, PersonaOut, PersonaUpdate
 
 router = APIRouter()
@@ -17,13 +18,28 @@ def read_personas(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> list[PersonaOut]:
-    return crud.personas.get_multi(db, skip=skip, limit=limit)
+    return crud.personas.get_multi(
+        db,
+        tenant_id=current_user.tenant_id,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.post("/", response_model=PersonaOut, status_code=status.HTTP_201_CREATED)
-def create_persona(*, persona_in: PersonaCreate, db: Session = Depends(get_db)) -> PersonaOut:
-    existente = crud.personas.get_by_nombre(db, persona_in.nombre)
+def create_persona(
+    *,
+    persona_in: PersonaCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PersonaOut:
+    existente = crud.personas.get_by_nombre(
+        db,
+        tenant_id=current_user.tenant_id,
+        nombre=persona_in.nombre,
+    )
     if existente:
         detail = error_detail(
             "persona_duplicate",
@@ -32,7 +48,7 @@ def create_persona(*, persona_in: PersonaCreate, db: Session = Depends(get_db)) 
         )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
     try:
-        return crud.personas.create(db, obj_in=persona_in)
+        return crud.personas.create(db, tenant_id=current_user.tenant_id, obj_in=persona_in)
     except IntegrityError as exc:
         db.rollback()
         detail = error_detail("persona_error", "No se pudo crear la persona")
@@ -44,8 +60,17 @@ def create_persona(*, persona_in: PersonaCreate, db: Session = Depends(get_db)) 
 
 
 @router.get("/{persona_id}", response_model=PersonaOut)
-def read_persona(*, persona_id: int, db: Session = Depends(get_db)) -> PersonaOut:
-    persona = crud.personas.get(db, persona_id)
+def read_persona(
+    *,
+    persona_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PersonaOut:
+    persona = crud.personas.get(
+        db,
+        tenant_id=current_user.tenant_id,
+        persona_id=persona_id,
+    )
     if not persona:
         detail = error_detail(
             "persona_not_found",
@@ -57,8 +82,18 @@ def read_persona(*, persona_id: int, db: Session = Depends(get_db)) -> PersonaOu
 
 
 @router.put("/{persona_id}", response_model=PersonaOut)
-def update_persona(*, persona_id: int, persona_in: PersonaUpdate, db: Session = Depends(get_db)) -> PersonaOut:
-    persona = crud.personas.get(db, persona_id)
+def update_persona(
+    *,
+    persona_id: int,
+    persona_in: PersonaUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> PersonaOut:
+    persona = crud.personas.get(
+        db,
+        tenant_id=current_user.tenant_id,
+        persona_id=persona_id,
+    )
     if not persona:
         detail = error_detail(
             "persona_not_found",
@@ -68,7 +103,11 @@ def update_persona(*, persona_id: int, persona_in: PersonaUpdate, db: Session = 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
     if persona_in.nombre and persona_in.nombre != persona.nombre:
-        existente = crud.personas.get_by_nombre(db, persona_in.nombre)
+        existente = crud.personas.get_by_nombre(
+            db,
+            tenant_id=current_user.tenant_id,
+            nombre=persona_in.nombre,
+        )
         if existente:
             detail = error_detail(
                 "persona_duplicate",
@@ -89,8 +128,17 @@ def update_persona(*, persona_id: int, persona_in: PersonaUpdate, db: Session = 
 
 
 @router.delete("/{persona_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_persona(*, persona_id: int, db: Session = Depends(get_db)) -> Response:
-    persona = crud.personas.get(db, persona_id)
+def delete_persona(
+    *,
+    persona_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    persona = crud.personas.get(
+        db,
+        tenant_id=current_user.tenant_id,
+        persona_id=persona_id,
+    )
     if not persona:
         detail = error_detail(
             "persona_not_found",

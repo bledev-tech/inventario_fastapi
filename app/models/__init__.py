@@ -5,7 +5,9 @@ from app.models.movimiento import Movimiento, TipoMovimiento
 from app.models.persona import Persona
 from app.models.producto import Producto
 from app.models.proveedor import Proveedor
+from app.models.tenant import Tenant
 from app.models.uom import UOM
+from app.models.user import User
 from app.models.vista_stock import VistaStockActual
 
 __all__ = [
@@ -19,4 +21,6 @@ __all__ = [
     "Categoria",
     "Proveedor",
     "UOM",
+    "Tenant",
+    "User",
 ]

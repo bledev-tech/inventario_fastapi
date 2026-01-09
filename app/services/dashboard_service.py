@@ -50,7 +50,7 @@ def _decimal_to_float(value: Decimal | None) -> float:
     return float(value) if value is not None else 0.0
 
 
-def get_dashboard_summary(db: Session) -> DashboardSummaryResponse:
+def get_dashboard_summary(db: Session, *, tenant_id: int) -> DashboardSummaryResponse:
     now = datetime.now(timezone.utc)
     seven_days_ago = now - timedelta(days=7)
     thirty_days_ago = now - timedelta(days=30)
@@ -60,7 +60,10 @@ def get_dashboard_summary(db: Session) -> DashboardSummaryResponse:
             select(
                 func.count(Movimiento.id).label("total_movements"),
                 func.count(func.distinct(Movimiento.producto_id)).label("distinct_products"),
-            ).where(Movimiento.fecha >= seven_days_ago)
+            ).where(
+                Movimiento.fecha >= seven_days_ago,
+                Movimiento.tenant_id == tenant_id,
+            )
         ).one()
 
         total_movements = int(totals_row.total_movements or 0)
@@ -74,6 +77,7 @@ def get_dashboard_summary(db: Session) -> DashboardSummaryResponse:
             .where(
                 Movimiento.fecha >= seven_days_ago,
                 Movimiento.tipo.in_([TipoMovimiento.ingreso, TipoMovimiento.uso]),
+                Movimiento.tenant_id == tenant_id,
             )
             .group_by(Movimiento.tipo)
         ).all()
@@ -99,6 +103,7 @@ def get_dashboard_summary(db: Session) -> DashboardSummaryResponse:
                 select(func.count(Movimiento.id)).where(
                     Movimiento.fecha >= thirty_days_ago,
                     Movimiento.tipo == TipoMovimiento.ajuste,
+                    Movimiento.tenant_id == tenant_id,
                 )
             ).scalar_one()
             or 0
@@ -126,6 +131,7 @@ def get_dashboard_summary(db: Session) -> DashboardSummaryResponse:
 def get_recent_movements(
     db: Session,
     *,
+    tenant_id: int,
     limit: int,
     offset: int,
     tipo: TipoMovimiento | None = None,
@@ -155,7 +161,7 @@ def get_recent_movements(
         .outerjoin(Proveedor, Movimiento.proveedor_id == Proveedor.id)
     )
 
-    filters = []
+    filters = [Movimiento.tenant_id == tenant_id]
     if tipo is not None:
         filters.append(Movimiento.tipo == tipo)
     if producto_id is not None:
@@ -192,7 +198,12 @@ def get_recent_movements(
     return RecentMovementsResponse(items=items, limit=limit, offset=offset)
 
 
-def get_stock_by_location(db: Session, *, exclude_zero_stock: bool = True) -> StockByLocationResponse:
+def get_stock_by_location(
+    db: Session,
+    *,
+    tenant_id: int,
+    exclude_zero_stock: bool = True,
+) -> StockByLocationResponse:
     stmt = (
         select(
             VistaStockActual.locacion_id,
@@ -200,6 +211,11 @@ def get_stock_by_location(db: Session, *, exclude_zero_stock: bool = True) -> St
             func.sum(VistaStockActual.stock).label("stock_total"),
         )
         .join(Locacion, VistaStockActual.locacion_id == Locacion.id)
+        .join(Producto, VistaStockActual.producto_id == Producto.id)
+        .where(
+            Locacion.tenant_id == tenant_id,
+            Producto.tenant_id == tenant_id,
+        )
         .group_by(VistaStockActual.locacion_id, Locacion.nombre)
         .order_by(Locacion.nombre.asc())
     )
@@ -225,7 +241,13 @@ def get_stock_by_location(db: Session, *, exclude_zero_stock: bool = True) -> St
     return StockByLocationResponse(items=items)
 
 
-def get_top_used_products(db: Session, *, days: int, limit: int) -> TopUsedProductsResponse:
+def get_top_used_products(
+    db: Session,
+    *,
+    tenant_id: int,
+    days: int,
+    limit: int,
+) -> TopUsedProductsResponse:
     since = datetime.now(timezone.utc) - timedelta(days=days)
 
     stmt = (
@@ -238,6 +260,8 @@ def get_top_used_products(db: Session, *, days: int, limit: int) -> TopUsedProdu
         .where(
             Movimiento.fecha >= since,
             Movimiento.tipo == TipoMovimiento.uso,
+            Movimiento.tenant_id == tenant_id,
+            Producto.tenant_id == tenant_id,
         )
         .group_by(Movimiento.producto_id, Producto.nombre)
         .order_by(func.sum(Movimiento.cantidad).desc(), Producto.nombre.asc())
@@ -260,7 +284,13 @@ def get_top_used_products(db: Session, *, days: int, limit: int) -> TopUsedProdu
     return TopUsedProductsResponse(items=items, days=days, limit=limit)
 
 
-def get_top_categories(db: Session, *, days: int, limit: int) -> TopCategoriesResponse:
+def get_top_categories(
+    db: Session,
+    *,
+    tenant_id: int,
+    days: int,
+    limit: int,
+) -> TopCategoriesResponse:
     since = datetime.now(timezone.utc) - timedelta(days=days)
 
     stmt = (
@@ -273,7 +303,12 @@ def get_top_categories(db: Session, *, days: int, limit: int) -> TopCategoriesRe
         .select_from(Movimiento)
         .join(Producto, Movimiento.producto_id == Producto.id)
         .join(Categoria, Producto.categoria_id == Categoria.id)
-        .where(Movimiento.fecha >= since)
+        .where(
+            Movimiento.fecha >= since,
+            Movimiento.tenant_id == tenant_id,
+            Producto.tenant_id == tenant_id,
+            Categoria.tenant_id == tenant_id,
+        )
         .group_by(Categoria.id, Categoria.nombre)
         .order_by(
             func.sum(func.abs(Movimiento.cantidad)).desc(),
@@ -300,11 +335,18 @@ def get_top_categories(db: Session, *, days: int, limit: int) -> TopCategoriesRe
     return TopCategoriesResponse(items=items, days=days, limit=limit)
 
 
-def get_adjustments_monitor(db: Session, *, days: int, top: int) -> AdjustmentsMonitorResponse:
+def get_adjustments_monitor(
+    db: Session,
+    *,
+    tenant_id: int,
+    days: int,
+    top: int,
+) -> AdjustmentsMonitorResponse:
     since = datetime.now(timezone.utc) - timedelta(days=days)
     base_filter = (
         Movimiento.fecha >= since,
         Movimiento.tipo == TipoMovimiento.ajuste,
+        Movimiento.tenant_id == tenant_id,
     )
 
     try:
@@ -322,7 +364,7 @@ def get_adjustments_monitor(db: Session, *, days: int, top: int) -> AdjustmentsM
                 func.count(Movimiento.id).label("ajustes_count"),
             )
             .join(Producto, Movimiento.producto_id == Producto.id)
-            .where(*base_filter)
+            .where(*base_filter, Producto.tenant_id == tenant_id)
             .group_by(Movimiento.producto_id, Producto.nombre)
             .order_by(func.count(Movimiento.id).desc(), Producto.nombre.asc())
             .limit(top)
@@ -346,6 +388,7 @@ def get_adjustments_monitor(db: Session, *, days: int, top: int) -> AdjustmentsM
             )
             .select_from(Locacion)
             .join(loc_union, Locacion.id == loc_union.c.locacion_id)
+            .where(Locacion.tenant_id == tenant_id)
             .group_by(Locacion.id, Locacion.nombre)
             .order_by(func.count().desc(), Locacion.nombre.asc())
             .limit(top)

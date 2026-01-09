@@ -7,7 +7,9 @@ from app.crud import (
     productos,
     proveedores,
     stock,
+    tenants,
     uoms,
+    users,
 )
 
 __all__ = [
@@ -20,4 +22,6 @@ __all__ = [
     "categorias",
     "proveedores",
     "uoms",
+    "tenants",
+    "users",
 ]
