@@ -122,7 +122,6 @@ ALTER TABLE movimientos ADD CONSTRAINT chk_mov_uso
     (tipo <> 'uso')
     OR (
       from_locacion_id IS NOT NULL
-      AND (to_locacion_id IS NULL OR to_locacion_id <> from_locacion_id)
     )
   );
 

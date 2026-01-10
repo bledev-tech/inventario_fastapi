@@ -37,8 +37,6 @@ class MovimientoBase(BaseModel):
         elif tipo is TipoMovimiento.uso:
             if from_id is None:
                 raise ValueError("Los usos requieren locacion origen")
-            if to_id is not None and to_id == from_id:
-                raise ValueError("Los usos no pueden registrar la misma locacion como destino")
         elif tipo is TipoMovimiento.ajuste:
             if from_id is None and to_id is None:
                 raise ValueError("Los ajustes requieren al menos una locacion")
